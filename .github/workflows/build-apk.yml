@@ -29,8 +29,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/release/app-release.apk
-          tag_name: v1.0.0
-          name: "ماين كرافت v1.0.0"
+          tag_name: v1.0.1
+          name: "ماين كرافت v1.0.1"
           body: "تطبيق ماين كرافت — حمّل ملف APK وثبّته على جهازك (فعّل التثبيت من مصادر غير معروفة)."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
