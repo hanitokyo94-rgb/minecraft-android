@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>عالم المكعبات</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #101410;
+    --card: #1B211B;
+    --text: #F2F4F0;
+    --text-2: #9AA396;
+    --border: #2A322A;
+    --accent: #6AA84F;
+    --accent-ink: #FFFFFF;
+    --soft: #22301E;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; overscroll-behavior: none; height: 100%; background: #0B0E0B; font-family: "IBM Plex Sans Arabic", system-ui, sans-serif; }
+  @media (min-width: 700px) {
+    body { display: grid; place-items: center; min-height: 100dvh; background: #171B17; }
+    #app {
+      width: 402px; height: min(874px, 96dvh);
+      border-radius: 36px; border: 1px solid #2E352E;
+      overflow: hidden; position: relative; background: var(--bg);
+      box-shadow: 0 1px 2px rgba(0,0,0,.4);
+    }
+  }
+  @media (max-width: 699px) {
+    #app { width: 100vw; height: 100dvh; position: relative; overflow: hidden; }
+  }
+  #gameCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  /* ===== HUD ===== */
+  .hud { position: absolute; inset: 0; pointer-events: none; user-select: none; }
+  .chip {
+    position: absolute; top: calc(10px + env(safe-area-inset-top));
+    background: rgba(10, 14, 10, .55); border: 1px solid rgba(255,255,255,.08);
+    color: var(--text); border-radius: 8px; padding: 5px 10px;
+    font-size: 12px; font-weight: 600; line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+  }
+  #statsChip { right: 12px; }
+  #pauseBtn {
+    position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 12px;
+    width: 40px; height: 40px; border-radius: 10px;
+    background: rgba(10, 14, 10, .55); border: 1px solid rgba(255,255,255,.08);
+    color: var(--text); font-size: 17px; pointer-events: auto; cursor: pointer;
+    display: grid; place-items: center;
+  }
+  #crosshair {
+    position: absolute; left: 50%; top: 50%; width: 22px; height: 22px;
+    transform: translate(-50%, -50%); opacity: .9;
+  }
+  #crosshair::before, #crosshair::after {
+    content: ""; position: absolute; background: rgba(255,255,255,.85);
+  }
+  #crosshair::before { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
+  #crosshair::after { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
+
+  /* Hotbar */
+  #hotbar {
+    position: absolute; bottom: calc(14px + env(safe-area-inset-bottom));
+    left: 50%; transform: translateX(-50%);
+    display: flex; gap: 6px; pointer-events: auto;
+    background: rgba(10, 14, 10, .55); border: 1px solid rgba(255,255,255,.08);
+    padding: 6px; border-radius: 14px;
+  }
+  .slot {
+    width: 44px; height: 44px; border-radius: 10px; border: 2px solid transparent;
+    display: grid; place-items: center; cursor: pointer; position: relative;
+    background: rgba(255,255,255,.05);
+  }
+  .slot.sel { border-color: var(--accent); background: rgba(106,168,79,.15); }
+  .slot canvas { width: 30px; height: 30px; border-radius: 6px; image-rendering: pixelated; }
+  .slot .num { position: absolute; top: 1px; right: 4px; font-size: 9px; color: var(--text-2); font-weight: 700; }
+
+  /* Action buttons */
+  #actions {
+    position: absolute; bottom: calc(84px + env(safe-area-inset-bottom));
+    left: 14px; display: flex; flex-direction: column; gap: 10px; pointer-events: auto;
+  }
+  .abtn {
+    width: 58px; height: 58px; border-radius: 16px; border: 1px solid rgba(255,255,255,.1);
+    background: rgba(10, 14, 10, .55); color: var(--text); font-size: 24px;
+    display: grid; place-items: center; cursor: pointer;
+  }
+  .abtn:active { filter: brightness(1.35); }
+  .abtn.sel { border: 2px solid var(--accent); background: rgba(106,168,79,.22); }
+  #jumpBtn { bottom: calc(84px + env(safe-area-inset-bottom)); right: 16px; position: absolute; pointer-events: auto; }
+
+  /* Joystick */
+  #joyBase {
+    position: absolute; width: 110px; height: 110px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.25); background: rgba(10,14,10,.25);
+    display: none; pointer-events: none;
+  }
+  #joyKnob {
+    position: absolute; width: 48px; height: 48px; border-radius: 50%;
+    background: rgba(255,255,255,.55); display: none; pointer-events: none;
+  }
+
+  /* ===== Menu / overlays ===== */
+  .overlay {
+    position: absolute; inset: 0; background: rgba(8, 11, 8, .82);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; z-index: 20; text-align: center; padding: 24px;
+  }
+  .overlay.hidden { display: none; }
+  .logo {
+    width: 84px; height: 84px; border-radius: 20px; background: var(--soft);
+    display: grid; place-items: center; font-size: 42px; margin-bottom: 4px;
+    border: 1px solid var(--border);
+  }
+  .overlay h1 { color: var(--text); font-size: 26px; font-weight: 800; }
+  .overlay p { color: var(--text-2); font-size: 14px; line-height: 1.7; max-width: 300px; }
+  .primary {
+    width: 100%; max-width: 280px; height: 50px; border-radius: 12px;
+    background: var(--accent); color: var(--accent-ink); border: none;
+    font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer;
+  }
+  .primary:active { filter: brightness(.92); }
+  .ghost {
+    width: 100%; max-width: 280px; height: 46px; border-radius: 12px;
+    background: transparent; color: var(--text); border: 1px solid var(--border);
+    font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer;
+  }
+  .ghost:active { background: rgba(255,255,255,.06); }
+  .keys { color: var(--text-2); font-size: 12px; line-height: 1.9; }
+  .keys b { color: var(--text); font-weight: 600; }
+  #toast {
+    position: absolute; top: calc(60px + env(safe-area-inset-top)); left: 50%;
+    transform: translateX(-50%); background: rgba(10,14,10,.75); color: var(--text);
+    border: 1px solid rgba(255,255,255,.1); padding: 7px 14px; border-radius: 10px;
+    font-size: 13px; font-weight: 600; opacity: 0; transition: opacity .2s; pointer-events: none;
+    z-index: 15;
+  }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="gameCanvas"></canvas>
+
+  <div class="hud" id="hud">
+    <div class="chip" id="statsChip">…</div>
+    <button id="pauseBtn">⏸</button>
+    <div id="crosshair"></div>
+    <div id="joyBase"></div>
+    <div id="joyKnob"></div>
+    <div id="actions">
+      <button class="abtn sel" id="breakBtn" title="تحطيم">⛏️</button>
+      <button class="abtn" id="placeBtn" title="بناء">🧱</button>
+    </div>
+    <button class="abtn" id="jumpBtn">⬆️</button>
+    <div id="hotbar"></div>
+  </div>
+
+  <div id="toast"></div>
+
+  <div class="overlay" id="menu">
+    <div class="logo">🧱</div>
+    <h1>عالم المكعبات</h1>
+    <p>استكشف، احفر، وابنِ في عالم ثلاثي الأبعاد يُولد من جديد في كل مرة.</p>
+    <button class="primary" id="startBtn">ابدأ اللعب</button>
+    <div class="keys">
+      <b>الجوال:</b> عصا الحركة يسار الشاشة · اسحب يمين الشاشة للنظر · اضغط للتحطيم أو البناء<br>
+      <b>الكمبيوتر:</b> WASD حركة · الفأرة نظر · زر أيسر تحطيم · أيمن بناء · ١-٧ اختيار بلوك
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="pauseMenu">
+    <div class="logo">⏸</div>
+    <h1>توقف مؤقت</h1>
+    <p>العالم محفوظ تلقائيًا — تقدر تكمل من حيث توقفت.</p>
+    <button class="primary" id="resumeBtn">متابعة اللعب</button>
+    <button class="ghost" id="newWorldBtn">🌍 عالم جديد</button>
+  </div>
+</div>
+
+<script src="three.min.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
